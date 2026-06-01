@@ -2,6 +2,9 @@
 chcp 437 > nul
 title YOLOv4-tiny Training - NTUT Project 6
 
+set "ROOT=%~dp0.."
+pushd "%ROOT%"
+
 echo.
 echo ============================================================
 echo   YOLOv4-tiny Local GPU Training (High-Speed PyTorch)
@@ -12,7 +15,7 @@ echo.
 :: ── STEP 1: Prepare dataset, cfg, weights ─────────────────────
 echo [1/3] Preparing dataset + config files + pretrained weights...
 echo.
-python train_yolov4tiny_darknet.py --mode prepare
+python "%~dp0train_yolov4tiny_darknet.py" --mode prepare
 if errorlevel 1 (
     echo.
     echo ERROR: Preparation failed. Check Python environment.
@@ -31,7 +34,7 @@ echo   Training is extremely fast using local GPU (~15-30 seconds!).
 echo   Wait a moment...
 echo.
 
-python train_pytorch_yolov4tiny.py
+python "%~dp0train_pytorch_yolov4tiny.py"
 if errorlevel 1 (
     echo.
     echo ERROR: Training failed. Check CUDA and PyTorch installation.
@@ -65,3 +68,5 @@ echo     3. Run in Project06.ipynb:
 echo        trt_yolo = TRT_YOLO("yolov4-tiny-416", (416, 416), 4)
 echo ============================================================
 pause
+
+popd

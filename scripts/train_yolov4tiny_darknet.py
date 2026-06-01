@@ -21,37 +21,47 @@ Class ID order (matches Project06.ipynb):
   3 = blocked     -> stop immediately
 """
 
-import sys, io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-
-import os, cv2, shutil, argparse, subprocess, urllib.request
+import urllib.request
+import subprocess
+import argparse
+import shutil
+import cv2
+import os
 from pathlib import Path
+import sys
+import io
+sys.stdout = io.TextIOWrapper(
+    sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stderr = io.TextIOWrapper(
+    sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 
 # ================================================================
 #  Constants
 # ================================================================
-PROJECT_ROOT  = Path(__file__).parent.resolve()
-DATASET_DIR   = PROJECT_ROOT / "_SignDetection.yolov4pytorch" / "train"
-ANN_FILE      = DATASET_DIR / "_annotations.txt"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CONFIG_DIR = PROJECT_ROOT / "config"
+DATASET_DIR = PROJECT_ROOT / "_SignDetection.yolov4pytorch" / "train"
+ANN_FILE = DATASET_DIR / "_annotations.txt"
 
-OBJ_DIR       = PROJECT_ROOT / "obj"
-BACKUP_DIR    = PROJECT_ROOT / "backup"
-OUTPUT_DIR    = PROJECT_ROOT / "jetbot_deploy"
+OBJ_DIR = PROJECT_ROOT / "obj"
+BACKUP_DIR = PROJECT_ROOT / "backup"
+OUTPUT_DIR = PROJECT_ROOT / "jetbot_deploy"
 
 # Class order that matches Project06.ipynb
 # sign[1]==0 stop, sign[1]==1 rail, sign[1]==2 pedestrian, sign[1]==3 blocked
-CLASS_NAMES   = ["stop", "rail", "pedestrian", "blocked"]
-NUM_CLASSES   = 4
+CLASS_NAMES = ["stop", "rail", "pedestrian", "blocked"]
+NUM_CLASSES = 4
 
 # Dataset _classes.txt order: 0=blocked 1=pedestrian 2=rail 3=stop
 # Remap: dataset_id -> training_id
-REMAP = {0: 3, 1: 2, 2: 1, 3: 0}   # blocked->3, pedestrian->2, rail->1, stop->0
+# blocked->3, pedestrian->2, rail->1, stop->0
+REMAP = {0: 3, 1: 2, 2: 1, 3: 0}
 
 # Darknet hyper-params for 4 classes
 MAX_BATCHES = NUM_CLASSES * 2000     # 8000
-STEPS       = f"{int(MAX_BATCHES*0.8)},{int(MAX_BATCHES*0.9)}"  # 6400,7200
-FILTERS     = (NUM_CLASSES + 5) * 3  # 27
+STEPS = f"{int(MAX_BATCHES*0.8)},{int(MAX_BATCHES*0.9)}"  # 6400,7200
+FILTERS = (NUM_CLASSES + 5) * 3  # 27
 
 
 # ================================================================
@@ -70,7 +80,7 @@ def prepare_dataset():
                 continue
             parts = line.split()
             fname = parts[0]
-            src   = DATASET_DIR / fname
+            src = DATASET_DIR / fname
             if not src.exists():
                 print(f"  [WARN] not found: {fname}")
                 skip += 1
@@ -98,15 +108,17 @@ def prepare_dataset():
                 bw = (x2 - x1) / W
                 bh = (y2 - y1) / H
                 if bw > 0 and bh > 0:
-                    label_lines.append(f"{cls_id} {cx:.6f} {cy:.6f} {bw:.6f} {bh:.6f}")
+                    label_lines.append(
+                        f"{cls_id} {cx:.6f} {cy:.6f} {bw:.6f} {bh:.6f}")
 
-            (OBJ_DIR / (Path(fname).stem + ".txt")).write_text("\n".join(label_lines))
+            (OBJ_DIR / (Path(fname).stem + ".txt")
+             ).write_text("\n".join(label_lines))
             ok += 1
 
     print(f"  Images converted: {ok}  (skipped: {skip})")
 
     # obj.names  (order = ipynb class IDs)
-    obj_names = PROJECT_ROOT / "obj.names"
+    obj_names = CONFIG_DIR / "obj.names"
     obj_names.write_text("\n".join(CLASS_NAMES) + "\n")
     print(f"  obj.names  -> {obj_names}")
     for i, n in enumerate(CLASS_NAMES):
@@ -114,12 +126,12 @@ def prepare_dataset():
 
     # train.txt
     imgs = sorted(OBJ_DIR.glob("*.jpg"))
-    train_txt = PROJECT_ROOT / "train.txt"
+    train_txt = CONFIG_DIR / "train.txt"
     train_txt.write_text("\n".join(str(p) for p in imgs) + "\n")
     print(f"  train.txt  -> {len(imgs)} images")
 
     # obj.data
-    obj_data = PROJECT_ROOT / "obj.data"
+    obj_data = CONFIG_DIR / "obj.data"
     obj_data.write_text(
         f"classes = {NUM_CLASSES}\n"
         f"train   = {train_txt}\n"
@@ -135,7 +147,7 @@ def prepare_dataset():
 # ================================================================
 def make_cfg():
     print(f"\n[STEP 2] Generating yolov4-tiny-custom.cfg ...")
-    cfg_path = PROJECT_ROOT / "yolov4-tiny-custom.cfg"
+    cfg_path = CONFIG_DIR / "yolov4-tiny-custom.cfg"
 
     cfg = f"""[net]
 batch=64
@@ -414,7 +426,8 @@ beta_nms=0.6
 """
 
     cfg_path.write_text(cfg)
-    print(f"  classes={NUM_CLASSES}  filters={FILTERS}  max_batches={MAX_BATCHES}  steps={STEPS}")
+    print(
+        f"  classes={NUM_CLASSES}  filters={FILTERS}  max_batches={MAX_BATCHES}  steps={STEPS}")
     print(f"  Saved -> {cfg_path}")
     return cfg_path
 
@@ -452,7 +465,8 @@ def find_darknet():
     # WSL check
     if shutil.which("wsl"):
         result = subprocess.run(
-            ["wsl", "bash", "-c", "which darknet 2>/dev/null || ls /tmp/darknet/darknet 2>/dev/null"],
+            ["wsl", "bash", "-c",
+                "which darknet 2>/dev/null || ls /tmp/darknet/darknet 2>/dev/null"],
             capture_output=True, text=True
         )
         if result.returncode == 0 and result.stdout.strip():
@@ -497,10 +511,10 @@ def w2wsl(p):
 def do_train(darknet_info, resume=False):
     kind, bin_path = darknet_info
 
-    obj_data   = PROJECT_ROOT / "obj.data"
-    cfg_path   = PROJECT_ROOT / "yolov4-tiny-custom.cfg"
-    conv_w     = PROJECT_ROOT / "yolov4-tiny.conv.29"
-    last_w     = BACKUP_DIR  / "yolov4-tiny-custom_last.weights"
+    obj_data = PROJECT_ROOT / "obj.data"
+    cfg_path = PROJECT_ROOT / "yolov4-tiny-custom.cfg"
+    conv_w = PROJECT_ROOT / "yolov4-tiny.conv.29"
+    last_w = BACKUP_DIR / "yolov4-tiny-custom_last.weights"
 
     weights_arg = str(last_w) if (resume and last_w.exists()) else str(conv_w)
 
@@ -511,8 +525,8 @@ def do_train(darknet_info, resume=False):
 
     if kind == "wsl":
         # Write a WSL-path version of obj.data so darknet inside WSL can read it
-        obj_names   = PROJECT_ROOT / "obj.names"
-        train_txt   = PROJECT_ROOT / "train.txt"
+        obj_names = PROJECT_ROOT / "obj.names"
+        train_txt = PROJECT_ROOT / "train.txt"
 
         # WSL train.txt: convert each Windows path in train.txt to /mnt/... format
         wsl_train_txt = PROJECT_ROOT / "train_wsl.txt"
@@ -553,7 +567,7 @@ def package_for_jetbot():
 
     best_w = BACKUP_DIR / "yolov4-tiny-custom_best.weights"
     last_w = BACKUP_DIR / "yolov4-tiny-custom_last.weights"
-    cfg_s  = PROJECT_ROOT / "yolov4-tiny-custom.cfg"
+    cfg_s = PROJECT_ROOT / "yolov4-tiny-custom.cfg"
 
     # Use best, fallback to last
     src_w = None
@@ -567,8 +581,8 @@ def package_for_jetbot():
         return
 
     dst_cfg = OUTPUT_DIR / "yolov4-tiny-416.cfg"
-    dst_w   = OUTPUT_DIR / "yolov4-tiny-416.weights"
-    dst_n   = OUTPUT_DIR / "obj.names"
+    dst_w = OUTPUT_DIR / "yolov4-tiny-416.weights"
+    dst_n = OUTPUT_DIR / "obj.names"
 
     shutil.copy2(cfg_s, dst_cfg)
     shutil.copy2(src_w, dst_w)
@@ -604,8 +618,10 @@ def package_for_jetbot():
 
     print(f"\n  Output folder: {OUTPUT_DIR}")
     print(f"\n  Copy to JetBot:")
-    print(f"    scp {OUTPUT_DIR}\\*.cfg jetbot@<IP>:~/trt_yolv4-tiny-master/yolo/")
-    print(f"    scp {OUTPUT_DIR}\\*.weights jetbot@<IP>:~/trt_yolv4-tiny-master/yolo/")
+    print(
+        f"    scp {OUTPUT_DIR}\\*.cfg jetbot@<IP>:~/trt_yolv4-tiny-master/yolo/")
+    print(
+        f"    scp {OUTPUT_DIR}\\*.weights jetbot@<IP>:~/trt_yolv4-tiny-master/yolo/")
     print(f"\n  On JetBot:")
     print(f"    python3 yolo_to_onnx.py -c 4 -m yolov4-tiny-416")
     print(f"    python3 onnx_to_tensorrt.py -c 4 -m yolov4-tiny-416")
@@ -620,15 +636,16 @@ def main():
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument("--mode", "-m", default="prepare",
-        choices=["prepare", "train", "resume", "package", "all"],
-        help=(
-            "prepare  - Convert dataset + generate all config files\n"
-            "train    - Run darknet training (auto-detects WSL or darknet.exe)\n"
-            "resume   - Resume from last checkpoint\n"
-            "package  - Rename outputs -> yolov4-tiny-416.* for JetBot\n"
-            "all      - Full pipeline (prepare + train + package)\n"
-        )
-    )
+                        choices=["prepare", "train",
+                                 "resume", "package", "all"],
+                        help=(
+                            "prepare  - Convert dataset + generate all config files\n"
+                            "train    - Run darknet training (auto-detects WSL or darknet.exe)\n"
+                            "resume   - Resume from last checkpoint\n"
+                            "package  - Rename outputs -> yolov4-tiny-416.* for JetBot\n"
+                            "all      - Full pipeline (prepare + train + package)\n"
+                        )
+                        )
     args = parser.parse_args()
 
     print("\n" + "=" * 60)
@@ -670,7 +687,8 @@ def main():
             print("        sudo apt-get install -y build-essential git")
             print("        git clone https://github.com/AlexeyAB/darknet /tmp/darknet")
             print("        cd /tmp/darknet && make -j4")
-            print("     3. run_training.bat  or  python train_yolov4tiny_darknet.py --mode train")
+            print(
+                "     3. run_training.bat  or  python train_yolov4tiny_darknet.py --mode train")
             print("=" * 60)
             return
 

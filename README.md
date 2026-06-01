@@ -30,21 +30,21 @@ graph TD
 | 檔案 | 用途 |
 |---|---|
 | [Project06.ipynb](Project06.ipynb) | JetBot 端即時推論與控制 Notebook |
-| [run_training.bat](run_training.bat) | 本地 Windows 一鍵訓練與輸出部署檔 |
-| [train_pytorch_yolov4tiny.py](train_pytorch_yolov4tiny.py) | 本地 GPU 訓練 YOLOv4-tiny 並輸出部署檔 |
-| [train_yolo.py](train_yolo.py) | Ultralytics 版本的訓練 / 驗證 / 匯出流程 |
-| [predict_vis.py](predict_vis.py) | 產生驗證視覺化結果，檢查模型辨識品質 |
+| [scripts/run_training.bat](scripts/run_training.bat) | 本地 Windows 一鍵訓練與輸出部署檔 |
+| [scripts/train_pytorch_yolov4tiny.py](scripts/train_pytorch_yolov4tiny.py) | 本地 GPU 訓練 YOLOv4-tiny 並輸出部署檔 |
+| [scripts/train_yolo.py](scripts/train_yolo.py) | Ultralytics 版本的訓練 / 驗證 / 匯出流程 |
+| [scripts/predict_vis.py](scripts/predict_vis.py) | 產生驗證視覺化結果，檢查模型辨識品質 |
 | [jetbot_deploy/](jetbot_deploy/) | 要複製到 JetBot 的部署檔案 |
-| [Local_YOLOv4_Tiny_Guide.md](Local_YOLOv4_Tiny_Guide.md) | 本地 GPU 訓練的詳細指南 |
-| [Project6_路牌辨識與走直線.md](Project6_路牌辨識與走直線.md) | 完整版流程與課程說明 |
-| [model_analysis.md](model_analysis.md) | 模型與結果分析 |
+| [docs/Local_YOLOv4_Tiny_Guide.md](docs/Local_YOLOv4_Tiny_Guide.md) | 本地 GPU 訓練的詳細指南 |
+| [docs/Project6_路牌辨識與走直線.md](docs/Project6_路牌辨識與走直線.md) | 完整版流程與課程說明 |
+| [docs/model_analysis.md](docs/model_analysis.md) | 模型與結果分析 |
 
 ## 快速上手
 
 如果你只是想先跑起來，建議先做這三步：
 
 1. 確認資料集資料夾完整，尤其是 `obj/`、`_SignDetection.yolo26/`、`_SignDetection.yolov4pytorch/`。
-2. 執行 [run_training.bat](run_training.bat) 或直接跑 [train_pytorch_yolov4tiny.py](train_pytorch_yolov4tiny.py)。
+2. 執行 [scripts/run_training.bat](scripts/run_training.bat) 或直接跑 [scripts/train_pytorch_yolov4tiny.py](scripts/train_pytorch_yolov4tiny.py)。
 3. 把 `jetbot_deploy/` 的內容放到 JetBot，再打開 [Project06.ipynb](Project06.ipynb) 執行推論。
 
 ## 類別與動作
@@ -65,12 +65,20 @@ graph TD
 - `_yolov4tiny_converted/`：轉成 YOLO 格式後的資料。
 - `backup/`、`runs/`、`jetbot_deploy/`：訓練輸出、驗證結果與部署檔。
 
+## 目前目錄分區
+
+- `docs/`：完整說明文件、分析報告。
+- `scripts/`：訓練、驗證、預測腳本與啟動批次檔。
+- `config/`：類別設定、訓練設定與 Darknet 相關配置檔。
+- `obj/`、`_SignDetection*/`、`_yolov4tiny_converted/`：資料集與轉換後資料。
+- `backup/`、`runs/`、`jetbot_deploy/`：模型輸出與部署檔。
+
 ## 文件導覽
 
 - 想先知道專案用途，看這份 README。
-- 想看本地高速訓練步驟，看 [Local_YOLOv4_Tiny_Guide.md](Local_YOLOv4_Tiny_Guide.md).
-- 想看傳統 Colab / Darknet 流程，看 [Project6_路牌辨識與走直線.md](Project6_路牌辨識與走直線.md).
-- 想看模型分析與結果，看 [model_analysis.md](model_analysis.md).
+- 想看本地高速訓練步驟，看 [docs/Local_YOLOv4_Tiny_Guide.md](docs/Local_YOLOv4_Tiny_Guide.md).
+- 想看傳統 Colab / Darknet 流程，看 [docs/Project6_路牌辨識與走直線.md](docs/Project6_路牌辨識與走直線.md).
+- 想看模型分析與結果，看 [docs/model_analysis.md](docs/model_analysis.md).
 
 ## 團隊資訊
 

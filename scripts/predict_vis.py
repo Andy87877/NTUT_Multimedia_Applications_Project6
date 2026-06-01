@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
-import sys, io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+from pathlib import Path
+import argparse
+import random
+import numpy as np
+import cv2
+import sys
+import io
+sys.stdout = io.TextIOWrapper(
+    sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stderr = io.TextIOWrapper(
+    sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 """
 Inference visualization on training images using best.pt
@@ -11,21 +19,16 @@ Inference visualization on training images using best.pt
 - Save results to runs/predict_vis/
 """
 
-import cv2
-import numpy as np
-import random
-import argparse
-from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).parent.resolve()
-DATASET_DIR  = PROJECT_ROOT / "_SignDetection.yolo26"
-IMG_DIR      = DATASET_DIR  / "train" / "images"
-LBL_DIR      = DATASET_DIR  / "train" / "labels"
-BEST_MODEL   = PROJECT_ROOT / "runs" / "sign_detection" / "weights" / "best.pt"
-OUT_DIR      = PROJECT_ROOT / "runs" / "predict_vis"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATASET_DIR = PROJECT_ROOT / "_SignDetection.yolo26"
+IMG_DIR = DATASET_DIR / "train" / "images"
+LBL_DIR = DATASET_DIR / "train" / "labels"
+BEST_MODEL = PROJECT_ROOT / "runs" / "sign_detection" / "weights" / "best.pt"
+OUT_DIR = PROJECT_ROOT / "runs" / "predict_vis"
 
-CLASS_NAMES  = ["blocked", "pedestrian", "rail", "stop"]
+CLASS_NAMES = ["blocked", "pedestrian", "rail", "stop"]
 
 # Color per class: BGR
 CLASS_COLORS = {
@@ -36,6 +39,8 @@ CLASS_COLORS = {
 }
 
 # ── Draw GT boxes from YOLO label file ─────────────────────────────
+
+
 def draw_gt(img, label_path, color=(180, 180, 180)):
     """Draw ground-truth boxes (grey dashed outline) onto img copy."""
     out = img.copy()
@@ -53,18 +58,19 @@ def draw_gt(img, label_path, color=(180, 180, 180)):
             y1 = int((cy - bh / 2) * h)
             x2 = int((cx + bw / 2) * w)
             y2 = int((cy + bh / 2) * h)
-            c  = CLASS_COLORS.get(cls_id, (200, 200, 200))
+            c = CLASS_COLORS.get(cls_id, (200, 200, 200))
             # dashed box via segments
-            for (sx1, sy1, sx2, sy2) in [(x1,y1,x2,y1),(x2,y1,x2,y2),(x2,y2,x1,y2),(x1,y2,x1,y1)]:
+            for (sx1, sy1, sx2, sy2) in [(x1, y1, x2, y1), (x2, y1, x2, y2), (x2, y2, x1, y2), (x1, y2, x1, y1)]:
                 pts = np.linspace(0, 1, 20)
                 for i in range(0, len(pts)-1, 2):
-                    px1 = int(sx1 + pts[i]   * (sx2-sx1))
-                    py1 = int(sy1 + pts[i]   * (sy2-sy1))
+                    px1 = int(sx1 + pts[i] * (sx2-sx1))
+                    py1 = int(sy1 + pts[i] * (sy2-sy1))
                     px2 = int(sx1 + pts[i+1] * (sx2-sx1))
                     py2 = int(sy1 + pts[i+1] * (sy2-sy1))
-                    cv2.line(out, (px1,py1), (px2,py2), c, 1)
-            label = CLASS_NAMES[cls_id] if cls_id < len(CLASS_NAMES) else str(cls_id)
-            cv2.putText(out, f"GT:{label}", (x1, max(y1-6,10)),
+                    cv2.line(out, (px1, py1), (px2, py2), c, 1)
+            label = CLASS_NAMES[cls_id] if cls_id < len(
+                CLASS_NAMES) else str(cls_id)
+            cv2.putText(out, f"GT:{label}", (x1, max(y1-6, 10)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.45, c, 1, cv2.LINE_AA)
     return out
 
@@ -76,8 +82,9 @@ def draw_pred(img, boxes_list):
     for cls_id, conf, x1, y1, x2, y2 in boxes_list:
         c = CLASS_COLORS.get(cls_id, (255, 255, 255))
         cv2.rectangle(out, (x1, y1), (x2, y2), c, 2)
-        label = CLASS_NAMES[cls_id] if cls_id < len(CLASS_NAMES) else str(cls_id)
-        text  = f"{label} {conf:.2f}"
+        label = CLASS_NAMES[cls_id] if cls_id < len(
+            CLASS_NAMES) else str(cls_id)
+        text = f"{label} {conf:.2f}"
         (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
         cv2.rectangle(out, (x1, y1-th-8), (x1+tw+4, y1), c, -1)
         cv2.putText(out, text, (x1+2, y1-5),
@@ -93,32 +100,32 @@ def make_card(img_path, label_path, pred_boxes, target_h=416):
 
     # Resize to target height while keeping aspect ratio
     h, w = img_orig.shape[:2]
-    scale   = target_h / h
-    new_w   = int(w * scale)
-    img_r   = cv2.resize(img_orig, (new_w, target_h))
+    scale = target_h / h
+    new_w = int(w * scale)
+    img_r = cv2.resize(img_orig, (new_w, target_h))
 
     # Rescale pred boxes too
     boxes_scaled = []
     for cls_id, conf, x1, y1, x2, y2 in pred_boxes:
         boxes_scaled.append((cls_id, conf,
-                              int(x1*scale), int(y1*scale),
-                              int(x2*scale), int(y2*scale)))
+                             int(x1*scale), int(y1*scale),
+                             int(x2*scale), int(y2*scale)))
 
     panel_clean = img_r.copy()                      # left  : clean (no box)
-    panel_gt    = draw_gt(img_r, label_path)        # middle: GT dashed
-    panel_pred  = draw_pred(img_r, boxes_scaled)    # right : prediction
+    panel_gt = draw_gt(img_r, label_path)        # middle: GT dashed
+    panel_pred = draw_pred(img_r, boxes_scaled)    # right : prediction
 
     # Header bar
     def add_header(panel, text, color):
         p = panel.copy()
         cv2.rectangle(p, (0, 0), (new_w, 26), color, -1)
         cv2.putText(p, text, (6, 18),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255,255,255), 1, cv2.LINE_AA)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
         return p
 
     panel_clean = add_header(panel_clean, "Original (clean)",  (60,  60,  60))
-    panel_gt    = add_header(panel_gt,    "Ground Truth (GT)", (30,  100, 30))
-    panel_pred  = add_header(panel_pred,  "Prediction (best.pt)", (30, 30, 140))
+    panel_gt = add_header(panel_gt,    "Ground Truth (GT)", (30,  100, 30))
+    panel_pred = add_header(panel_pred,  "Prediction (best.pt)", (30, 30, 140))
 
     # Divider line
     div = np.full((target_h, 3, 3), 40, dtype=np.uint8)
@@ -130,7 +137,8 @@ def make_card(img_path, label_path, pred_boxes, target_h=416):
 #  Main
 # ══════════════════════════════════════════════════════════════════
 def main():
-    parser = argparse.ArgumentParser(description="Visualize best.pt on training images")
+    parser = argparse.ArgumentParser(
+        description="Visualize best.pt on training images")
     parser.add_argument("--n",     type=int,   default=20,
                         help="Number of images to process (default 20, 0=all)")
     parser.add_argument("--conf",  type=float, default=0.25,
@@ -168,17 +176,18 @@ def main():
         selected = random.sample(all_imgs, args.n)
     selected = sorted(selected)
 
-    print(f"[INFO] Processing {len(selected)} / {len(all_imgs)} images  (conf={args.conf})")
+    print(
+        f"[INFO] Processing {len(selected)} / {len(all_imgs)} images  (conf={args.conf})")
 
     # ── Run batch inference ───────────────────────────────────────
     img_paths = [str(p) for p in selected]
-    results   = model.predict(
-        source  = img_paths,
-        imgsz   = 416,
-        conf    = args.conf,
-        iou     = 0.45,
-        verbose = False,
-        device  = "",
+    results = model.predict(
+        source=img_paths,
+        imgsz=416,
+        conf=args.conf,
+        iou=0.45,
+        verbose=False,
+        device="",
     )
 
     # ── Build cards & save ────────────────────────────────────────
@@ -197,8 +206,8 @@ def main():
             stats["detected"] += 1
             for box in result.boxes:
                 cls_id = int(box.cls[0])
-                conf   = float(box.conf[0])
-                x1,y1,x2,y2 = [int(v) for v in box.xyxy[0]]
+                conf = float(box.conf[0])
+                x1, y1, x2, y2 = [int(v) for v in box.xyxy[0]]
                 pred_boxes.append((cls_id, conf, x1, y1, x2, y2))
 
         # Check if at least one pred class matches GT
@@ -207,7 +216,8 @@ def main():
             with open(label_path) as f:
                 for line in f:
                     parts = line.strip().split()
-                    if parts: gt_classes.add(int(parts[0]))
+                    if parts:
+                        gt_classes.add(int(parts[0]))
             pred_classes = {b[0] for b in pred_boxes}
             if gt_classes & pred_classes:
                 stats["correct_cls"] += 1
@@ -230,7 +240,8 @@ def main():
         cls_str = ", ".join(
             f"{CLASS_NAMES[b[0]]}({b[1]:.2f})" for b in pred_boxes
         ) if pred_boxes else "-- none --"
-        print(f"  [{stats['total']:3d}/{len(selected)}] {img_path.name[:45]:<45} -> {cls_str}")
+        print(
+            f"  [{stats['total']:3d}/{len(selected)}] {img_path.name[:45]:<45} -> {cls_str}")
 
     if args.show:
         cv2.destroyAllWindows()
@@ -266,8 +277,10 @@ def main():
     print("  Inference Summary")
     print("=" * 60)
     print(f"  Images processed  : {stats['total']}")
-    print(f"  Images w/ detects : {stats['detected']}  ({stats['detected']/max(stats['total'],1)*100:.1f}%)")
-    print(f"  Class match w/ GT : {stats['correct_cls']}  ({stats['correct_cls']/max(stats['total'],1)*100:.1f}%)")
+    print(
+        f"  Images w/ detects : {stats['detected']}  ({stats['detected']/max(stats['total'],1)*100:.1f}%)")
+    print(
+        f"  Class match w/ GT : {stats['correct_cls']}  ({stats['correct_cls']/max(stats['total'],1)*100:.1f}%)")
     print(f"  Output folder     : {OUT_DIR}")
     print("=" * 60)
     print()

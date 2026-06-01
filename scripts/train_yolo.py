@@ -1,8 +1,16 @@
 # -*- coding: utf-8 -*-
 # fix Windows console encoding
-import sys, io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+from pathlib import Path
+import yaml
+import argparse
+import shutil
+import os
+import sys
+import io
+sys.stdout = io.TextIOWrapper(
+    sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stderr = io.TextIOWrapper(
+    sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 """
 YOLO Sign Detection Training Script
@@ -17,68 +25,63 @@ Usage:
     python train_yolo.py --mode detect
 """
 
-import os
-import shutil
-import argparse
-import yaml
-from pathlib import Path
 
 # ── Paths ─────────────────────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).parent.resolve()
-DATASET_DIR  = PROJECT_ROOT / "_SignDetection.yolo26"
-DATA_YAML    = DATASET_DIR  / "data.yaml"
-RUNS_DIR     = PROJECT_ROOT / "runs" / "sign_detection"
-WEIGHTS_DIR  = PROJECT_ROOT / "weights"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATASET_DIR = PROJECT_ROOT / "_SignDetection.yolo26"
+DATA_YAML = DATASET_DIR / "data.yaml"
+RUNS_DIR = PROJECT_ROOT / "runs" / "sign_detection"
+WEIGHTS_DIR = PROJECT_ROOT / "weights"
 
 # ── Training hyper-parameters ──────────────────────────────────────
 TRAIN_CONFIG = {
     # Basic
-    "model"           : "yolo11n.pt",  # nano pretrained weights, fast enough for JetBot
-    "data"            : str(DATA_YAML),
-    "epochs"          : 100,
-    "imgsz"           : 416,           # matches TRT_YOLO("yolov4-tiny-416") in ipynb
-    "batch"           : 16,
-    "workers"         : 4,
+    "model": "yolo11n.pt",  # nano pretrained weights, fast enough for JetBot
+    "data": str(DATA_YAML),
+    "epochs": 100,
+    "imgsz": 416,           # matches TRT_YOLO("yolov4-tiny-416") in ipynb
+    "batch": 16,
+    "workers": 4,
 
     # Optimizer
-    "optimizer"       : "SGD",
-    "lr0"             : 0.01,
-    "lrf"             : 0.01,
-    "momentum"        : 0.937,
-    "weight_decay"    : 0.0005,
-    "warmup_epochs"   : 3.0,
-    "warmup_momentum" : 0.8,
-    "warmup_bias_lr"  : 0.1,
+    "optimizer": "SGD",
+    "lr0": 0.01,
+    "lrf": 0.01,
+    "momentum": 0.937,
+    "weight_decay": 0.0005,
+    "warmup_epochs": 3.0,
+    "warmup_momentum": 0.8,
+    "warmup_bias_lr": 0.1,
 
     # Loss weights
-    "box"             : 7.5,
-    "cls"             : 0.5,
-    "dfl"             : 1.5,
+    "box": 7.5,
+    "cls": 0.5,
+    "dfl": 1.5,
 
     # Augmentation
-    "hsv_h"           : 0.015,
-    "hsv_s"           : 0.7,
-    "hsv_v"           : 0.4,
-    "degrees"         : 0.0,
-    "translate"       : 0.1,
-    "scale"           : 0.5,
-    "shear"           : 0.0,
-    "perspective"     : 0.0,
-    "flipud"          : 0.0,
-    "fliplr"          : 0.5,
-    "mosaic"          : 1.0,
-    "mixup"           : 0.0,
+    "hsv_h": 0.015,
+    "hsv_s": 0.7,
+    "hsv_v": 0.4,
+    "degrees": 0.0,
+    "translate": 0.1,
+    "scale": 0.5,
+    "shear": 0.0,
+    "perspective": 0.0,
+    "flipud": 0.0,
+    "fliplr": 0.5,
+    "mosaic": 1.0,
+    "mixup": 0.0,
 
     # Output
-    "project"         : str(RUNS_DIR.parent),
-    "name"            : RUNS_DIR.name,
-    "exist_ok"        : True,
-    "save"            : True,
-    "save_period"     : 10,            # save checkpoint every 10 epochs
-    "patience"        : 30,            # early stopping patience
-    "plots"           : True,
-    "verbose"         : True,
-    "device"          : "",            # auto: GPU if available, else CPU
+    "project": str(RUNS_DIR.parent),
+    "name": RUNS_DIR.name,
+    "exist_ok": True,
+    "save": True,
+    "save_period": 10,            # save checkpoint every 10 epochs
+    "patience": 30,            # early stopping patience
+    "plots": True,
+    "verbose": True,
+    "device": "",            # auto: GPU if available, else CPU
 }
 
 CLASS_NAMES = ["blocked", "pedestrian", "rail", "stop"]
@@ -98,11 +101,11 @@ def fix_data_yaml():
 
     train_dir = DATASET_DIR / "train" / "images"
     valid_dir = DATASET_DIR / "valid" / "images"
-    test_dir  = DATASET_DIR / "test"  / "images"
+    test_dir = DATASET_DIR / "test" / "images"
 
     cfg["train"] = str(train_dir)
-    cfg["val"]   = str(valid_dir) if valid_dir.exists() else str(train_dir)
-    cfg["test"]  = str(test_dir)  if test_dir.exists()  else str(train_dir)
+    cfg["val"] = str(valid_dir) if valid_dir.exists() else str(train_dir)
+    cfg["test"] = str(test_dir) if test_dir.exists() else str(train_dir)
 
     fixed = DATASET_DIR / "data_fixed.yaml"
     with open(fixed, "w", encoding="utf-8") as f:
@@ -144,7 +147,8 @@ def get_yolo():
     except ImportError:
         print("[WARNING] ultralytics not found, installing...")
         import subprocess
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "ultralytics"])
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "ultralytics"])
         from ultralytics import YOLO
         return YOLO
 
@@ -251,12 +255,12 @@ def export_model(weights_path=None, export_format="onnx"):
     model = YOLO(str(weights_path))
 
     export_path = model.export(
-        format   = export_format,
-        imgsz    = TRAIN_CONFIG["imgsz"],
-        simplify = True,   # simplify ONNX graph
-        opset    = 11,     # JetPack compatible
-        dynamic  = False,
-        half     = False,  # FP32 here; convert to FP16 on JetBot
+        format=export_format,
+        imgsz=TRAIN_CONFIG["imgsz"],
+        simplify=True,   # simplify ONNX graph
+        opset=11,     # JetPack compatible
+        dynamic=False,
+        half=False,  # FP32 here; convert to FP16 on JetBot
     )
 
     dst = WEIGHTS_DIR / Path(export_path).name
@@ -270,8 +274,8 @@ def export_model(weights_path=None, export_format="onnx"):
     print("    1. scp the .onnx file to JetBot")
     print("    2. On JetBot, run:")
     print(f"       trtexec --onnx={dst.name} \\")
-    print( "               --saveEngine=sign_detect.trt \\")
-    print( "               --workspace=1024 --fp16")
+    print("               --saveEngine=sign_detect.trt \\")
+    print("               --workspace=1024 --fp16")
     print("=" * 60)
     return export_path
 
@@ -297,18 +301,18 @@ def detect(source=None, weights_path=None, conf=0.25):
 
     model = YOLO(str(weights_path))
     results = model.predict(
-        source   = source,
-        imgsz    = TRAIN_CONFIG["imgsz"],
-        conf     = conf,
-        iou      = 0.45,
-        save     = True,
-        save_txt = True,
-        save_conf= True,
-        project  = str(RUNS_DIR.parent / "predict"),
-        name     = "sign_detect",
-        exist_ok = True,
-        verbose  = True,
-        max_det  = 10,
+        source=source,
+        imgsz=TRAIN_CONFIG["imgsz"],
+        conf=conf,
+        iou=0.45,
+        save=True,
+        save_txt=True,
+        save_conf=True,
+        project=str(RUNS_DIR.parent / "predict"),
+        name="sign_detect",
+        exist_ok=True,
+        verbose=True,
+        max_det=10,
     )
 
     print("\n" + "=" * 60)
@@ -321,12 +325,14 @@ def detect(source=None, weights_path=None, conf=0.25):
             print(f"  {img_name}: no sign detected")
         else:
             for box in boxes:
-                cls_id   = int(box.cls[0])
-                conf_v   = float(box.conf[0])
-                xyxy     = [int(v) for v in box.xyxy[0]]
-                width    = xyxy[2] - xyxy[0]
-                cls_name = CLASS_NAMES[cls_id] if cls_id < len(CLASS_NAMES) else str(cls_id)
-                print(f"  {img_name}: [{cls_name}] conf={conf_v:.2f}  w={width}px  bbox={xyxy}")
+                cls_id = int(box.cls[0])
+                conf_v = float(box.conf[0])
+                xyxy = [int(v) for v in box.xyxy[0]]
+                width = xyxy[2] - xyxy[0]
+                cls_name = CLASS_NAMES[cls_id] if cls_id < len(
+                    CLASS_NAMES) else str(cls_id)
+                print(
+                    f"  {img_name}: [{cls_name}] conf={conf_v:.2f}  w={width}px  bbox={xyxy}")
     print("=" * 60)
     return results
 
@@ -384,11 +390,16 @@ def main():
     print(f"  Imgsz  : {TRAIN_CONFIG['imgsz']}")
     print("=" * 60 + "\n")
 
-    if   args.mode == "train":  train(resume=False)
-    elif args.mode == "resume": train(resume=True)
-    elif args.mode == "val":    validate(weights_path=args.weights)
-    elif args.mode == "export": export_model(weights_path=args.weights, export_format=args.format)
-    elif args.mode == "detect": detect(source=args.source, weights_path=args.weights, conf=args.conf)
+    if args.mode == "train":
+        train(resume=False)
+    elif args.mode == "resume":
+        train(resume=True)
+    elif args.mode == "val":
+        validate(weights_path=args.weights)
+    elif args.mode == "export":
+        export_model(weights_path=args.weights, export_format=args.format)
+    elif args.mode == "detect":
+        detect(source=args.source, weights_path=args.weights, conf=args.conf)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,16 @@
 # -*- coding: utf-8 -*-
-import sys, io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+from pathlib import Path
+import cv2
+import yaml
+import argparse
+import shutil
+import os
+import sys
+import io
+sys.stdout = io.TextIOWrapper(
+    sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stderr = io.TextIOWrapper(
+    sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 """
 YOLOv4-tiny Training Script using Ultralytics
@@ -22,73 +31,68 @@ Usage:
     python train_yolov4tiny.py --mode detect
 """
 
-import os
-import shutil
-import argparse
-import yaml
-import cv2
-from pathlib import Path
 
 # ── Paths ─────────────────────────────────────────────────────────
-PROJECT_ROOT  = Path(__file__).parent.resolve()
-DATASET_DIR   = PROJECT_ROOT / "_SignDetection.yolov4pytorch"
-TRAIN_RAW_DIR = DATASET_DIR  / "train"                  # raw images + _annotations.txt
-ANN_FILE      = TRAIN_RAW_DIR / "_annotations.txt"
-CLS_FILE      = TRAIN_RAW_DIR / "_classes.txt"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATASET_DIR = PROJECT_ROOT / "_SignDetection.yolov4pytorch"
+# raw images + _annotations.txt
+TRAIN_RAW_DIR = DATASET_DIR / "train"
+ANN_FILE = TRAIN_RAW_DIR / "_annotations.txt"
+CLS_FILE = TRAIN_RAW_DIR / "_classes.txt"
 
 # Converted dataset (YOLO format with separate images/ and labels/)
-CONV_DIR      = PROJECT_ROOT / "_yolov4tiny_converted"
-CONV_IMG_DIR  = CONV_DIR / "images" / "train"
-CONV_LBL_DIR  = CONV_DIR / "labels" / "train"
-DATA_YAML     = CONV_DIR / "data.yaml"
+CONV_DIR = PROJECT_ROOT / "_yolov4tiny_converted"
+CONV_IMG_DIR = CONV_DIR / "images" / "train"
+CONV_LBL_DIR = CONV_DIR / "labels" / "train"
+DATA_YAML = CONV_DIR / "data.yaml"
 
-RUNS_DIR      = PROJECT_ROOT / "runs" / "yolov4tiny"
-WEIGHTS_DIR   = PROJECT_ROOT / "weights"
+RUNS_DIR = PROJECT_ROOT / "runs" / "yolov4tiny"
+WEIGHTS_DIR = PROJECT_ROOT / "weights"
 
-CLASS_NAMES   = ["blocked", "pedestrian", "rail", "stop"]
+CLASS_NAMES = ["blocked", "pedestrian", "rail", "stop"]
 
 # ── Training config ────────────────────────────────────────────────
 TRAIN_CONFIG = {
     # Model: yolov4-tiny equivalent in ultralytics -> YOLOv8n / YOLO11n (same scale)
     # ultralytics does not ship a "yolov4-tiny.pt" directly, but provides
     # yolov4-tiny architecture via cfg file. We use the built-in one:
-    "model"           : "yolov4-tiny.pt",   # auto-downloaded if not present
-    "data"            : str(DATA_YAML),
-    "epochs"          : 100,
-    "imgsz"           : 416,
-    "batch"           : 16,
-    "workers"         : 4,
+    "model": "yolov4-tiny.pt",   # auto-downloaded if not present
+    "data": str(DATA_YAML),
+    "epochs": 100,
+    "imgsz": 416,
+    "batch": 16,
+    "workers": 4,
 
-    "optimizer"       : "SGD",
-    "lr0"             : 0.01,
-    "lrf"             : 0.01,
-    "momentum"        : 0.937,
-    "weight_decay"    : 0.0005,
-    "warmup_epochs"   : 3.0,
-    "warmup_momentum" : 0.8,
-    "warmup_bias_lr"  : 0.1,
+    "optimizer": "SGD",
+    "lr0": 0.01,
+    "lrf": 0.01,
+    "momentum": 0.937,
+    "weight_decay": 0.0005,
+    "warmup_epochs": 3.0,
+    "warmup_momentum": 0.8,
+    "warmup_bias_lr": 0.1,
 
-    "box"             : 7.5,
-    "cls"             : 0.5,
-    "dfl"             : 1.5,
+    "box": 7.5,
+    "cls": 0.5,
+    "dfl": 1.5,
 
-    "hsv_h"           : 0.015,
-    "hsv_s"           : 0.7,
-    "hsv_v"           : 0.4,
-    "fliplr"          : 0.5,
-    "mosaic"          : 1.0,
-    "scale"           : 0.5,
-    "translate"       : 0.1,
+    "hsv_h": 0.015,
+    "hsv_s": 0.7,
+    "hsv_v": 0.4,
+    "fliplr": 0.5,
+    "mosaic": 1.0,
+    "scale": 0.5,
+    "translate": 0.1,
 
-    "project"         : str(RUNS_DIR.parent),
-    "name"            : RUNS_DIR.name,
-    "exist_ok"        : True,
-    "save"            : True,
-    "save_period"     : 10,
-    "patience"        : 30,
-    "plots"           : True,
-    "verbose"         : True,
-    "device"          : "",
+    "project": str(RUNS_DIR.parent),
+    "name": RUNS_DIR.name,
+    "exist_ok": True,
+    "save": True,
+    "save_period": 10,
+    "patience": 30,
+    "plots": True,
+    "verbose": True,
+    "device": "",
 }
 
 
@@ -104,7 +108,8 @@ def convert_dataset(force=False):
     if CONV_IMG_DIR.exists() and not force:
         n = len(list(CONV_IMG_DIR.glob("*.jpg")))
         if n > 0:
-            print(f"[INFO] Converted dataset already exists ({n} images). Skipping.")
+            print(
+                f"[INFO] Converted dataset already exists ({n} images). Skipping.")
             return
 
     print("[INFO] Converting _annotations.txt -> YOLO label files ...")
@@ -119,7 +124,7 @@ def convert_dataset(force=False):
                 continue
             parts = line.split()
             fname = parts[0]
-            src   = TRAIN_RAW_DIR / fname
+            src = TRAIN_RAW_DIR / fname
             if not src.exists():
                 print(f"  [WARN] image not found: {fname}")
                 skip += 1
@@ -153,14 +158,16 @@ def convert_dataset(force=False):
                 bh = (y2 - y1) / H
                 if bw <= 0 or bh <= 0:
                     continue
-                label_lines.append(f"{cls_id} {cx:.6f} {cy:.6f} {bw:.6f} {bh:.6f}")
+                label_lines.append(
+                    f"{cls_id} {cx:.6f} {cy:.6f} {bw:.6f} {bh:.6f}")
 
             dst_lbl = CONV_LBL_DIR / (Path(fname).stem + ".txt")
             with open(dst_lbl, "w") as lf:
                 lf.write("\n".join(label_lines))
             ok += 1
 
-    print(f"[INFO] Conversion done:  {ok} ok  |  {skip} skipped  |  {err} errors")
+    print(
+        f"[INFO] Conversion done:  {ok} ok  |  {skip} skipped  |  {err} errors")
     print(f"       Images -> {CONV_IMG_DIR}")
     print(f"       Labels -> {CONV_LBL_DIR}")
 
@@ -170,10 +177,10 @@ def convert_dataset(force=False):
 # ══════════════════════════════════════════════════════════════════
 def write_data_yaml():
     cfg = {
-        "train" : str(CONV_IMG_DIR),
-        "val"   : str(CONV_IMG_DIR),   # same split (train-only dataset)
-        "nc"    : len(CLASS_NAMES),
-        "names" : CLASS_NAMES,
+        "train": str(CONV_IMG_DIR),
+        "val": str(CONV_IMG_DIR),   # same split (train-only dataset)
+        "nc": len(CLASS_NAMES),
+        "names": CLASS_NAMES,
     }
     with open(DATA_YAML, "w", encoding="utf-8") as f:
         yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
@@ -195,7 +202,8 @@ def get_yolo():
     except ImportError:
         import subprocess
         print("[WARNING] Installing ultralytics ...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "ultralytics"])
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "ultralytics"])
         from ultralytics import YOLO
         return YOLO
 
@@ -211,7 +219,7 @@ def resolve_model():
     """
     YOLO = get_yolo()
     preferred = "yolov4-tiny.pt"
-    fallback  = "yolov8n.pt"
+    fallback = "yolov8n.pt"
 
     try:
         print(f"[INFO] Trying model: {preferred}")
@@ -220,7 +228,8 @@ def resolve_model():
         return preferred, YOLO
     except Exception as e:
         print(f"[WARN] {preferred} not available: {e}")
-        print(f"[INFO] Falling back to {fallback} (similar scale to yolov4-tiny)")
+        print(
+            f"[INFO] Falling back to {fallback} (similar scale to yolov4-tiny)")
         return fallback, YOLO
 
 
@@ -235,7 +244,7 @@ def train(resume=False):
 
     config = TRAIN_CONFIG.copy()
     config["model"] = model_name
-    config["data"]  = str(DATA_YAML)
+    config["data"] = str(DATA_YAML)
 
     print("\n" + "=" * 60)
     print("  YOLOv4-tiny Sign Detection Training")
@@ -282,7 +291,7 @@ def validate(weights_path=None):
         return
 
     write_data_yaml()
-    model   = YOLO(str(weights_path))
+    model = YOLO(str(weights_path))
     metrics = model.val(data=str(DATA_YAML), imgsz=416, conf=0.25, iou=0.6,
                         plots=True, verbose=True)
 
@@ -318,7 +327,8 @@ def export_model(weights_path=None, export_format="onnx"):
 
     print(f"\n[INFO] Exported -> {dst}")
     print("  JetBot TensorRT conversion:")
-    print(f"    trtexec --onnx={dst.name} --saveEngine=sign_v4tiny.trt --workspace=1024 --fp16")
+    print(
+        f"    trtexec --onnx={dst.name} --saveEngine=sign_v4tiny.trt --workspace=1024 --fp16")
     return export_path
 
 
@@ -341,7 +351,7 @@ def detect(source=None, weights_path=None, conf=0.25):
     print(f"[INFO] Source  : {source}")
     print(f"[INFO] Weights : {weights_path}")
 
-    model   = YOLO(str(weights_path))
+    model = YOLO(str(weights_path))
     results = model.predict(source=source, imgsz=416, conf=conf, iou=0.45,
                             save=True, save_txt=True, save_conf=True,
                             project=str(RUNS_DIR.parent / "predict_v4tiny"),
@@ -356,12 +366,14 @@ def detect(source=None, weights_path=None, conf=0.25):
             print(f"  {img_name}: no sign detected")
         else:
             for box in r.boxes:
-                cls_id   = int(box.cls[0])
-                conf_v   = float(box.conf[0])
-                xyxy     = [int(v) for v in box.xyxy[0]]
-                width    = xyxy[2] - xyxy[0]
-                cls_name = CLASS_NAMES[cls_id] if cls_id < len(CLASS_NAMES) else str(cls_id)
-                print(f"  {img_name}: [{cls_name}] conf={conf_v:.2f}  w={width}px")
+                cls_id = int(box.cls[0])
+                conf_v = float(box.conf[0])
+                xyxy = [int(v) for v in box.xyxy[0]]
+                width = xyxy[2] - xyxy[0]
+                cls_name = CLASS_NAMES[cls_id] if cls_id < len(
+                    CLASS_NAMES) else str(cls_id)
+                print(
+                    f"  {img_name}: [{cls_name}] conf={conf_v:.2f}  w={width}px")
     print("=" * 60)
     return results
 
@@ -375,7 +387,8 @@ def main():
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument("--mode", "-m", default="train",
-                        choices=["train", "resume", "val", "export", "detect", "convert"],
+                        choices=["train", "resume", "val",
+                                 "export", "detect", "convert"],
                         help="Mode: train / resume / val / export / detect / convert")
     parser.add_argument("--weights", "-w", default=None,
                         help="Path to weights (for val/export/detect)")
@@ -391,8 +404,10 @@ def main():
 
     args = parser.parse_args()
 
-    if args.epochs: TRAIN_CONFIG["epochs"] = args.epochs
-    if args.batch:  TRAIN_CONFIG["batch"]  = args.batch
+    if args.epochs:
+        TRAIN_CONFIG["epochs"] = args.epochs
+    if args.batch:
+        TRAIN_CONFIG["batch"] = args.batch
 
     print("\n" + "=" * 60)
     print("  YOLOv4-tiny Sign Detection Tool")
@@ -404,12 +419,19 @@ def main():
     print(f"  Imgsz  : {TRAIN_CONFIG['imgsz']}")
     print("=" * 60 + "\n")
 
-    if   args.mode == "convert": convert_dataset(force=args.force_convert); write_data_yaml()
-    elif args.mode == "train":   train(resume=False)
-    elif args.mode == "resume":  train(resume=True)
-    elif args.mode == "val":     validate(weights_path=args.weights)
-    elif args.mode == "export":  export_model(weights_path=args.weights, export_format=args.format)
-    elif args.mode == "detect":  detect(source=args.source, weights_path=args.weights, conf=args.conf)
+    if args.mode == "convert":
+        convert_dataset(force=args.force_convert)
+        write_data_yaml()
+    elif args.mode == "train":
+        train(resume=False)
+    elif args.mode == "resume":
+        train(resume=True)
+    elif args.mode == "val":
+        validate(weights_path=args.weights)
+    elif args.mode == "export":
+        export_model(weights_path=args.weights, export_format=args.format)
+    elif args.mode == "detect":
+        detect(source=args.source, weights_path=args.weights, conf=args.conf)
 
 
 if __name__ == "__main__":
