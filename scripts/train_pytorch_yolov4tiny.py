@@ -231,8 +231,8 @@ def load_darknet_weights(model, weights_path):
 
 def save_darknet_weights(model, filename):
     with open(filename, 'wb') as f:
-        # Header: major, minor, revision, seen
-        header = np.array([0, 2, 5, 320000], dtype=np.int32)
+        # Header: major, minor, revision, seen (seen is 64-bit, so represented as two 32-bit ints)
+        header = np.array([0, 2, 5, 320000, 0], dtype=np.int32)
         header.tofile(f)
 
         conv_layers = [
