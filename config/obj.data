@@ -1,5 +1,5 @@
 classes = 4
-train   = C:\Users\andy8\Desktop\NTUT_Media\Project6\train.txt
-valid   = C:\Users\andy8\Desktop\NTUT_Media\Project6\train.txt
-names   = C:\Users\andy8\Desktop\NTUT_Media\Project6\obj.names
+train   = C:\Users\andy8\Desktop\NTUT_Media\Project6\config\train.txt
+valid   = C:\Users\andy8\Desktop\NTUT_Media\Project6\config\train.txt
+names   = C:\Users\andy8\Desktop\NTUT_Media\Project6\config\obj.names
 backup  = C:\Users\andy8\Desktop\NTUT_Media\Project6\backup
