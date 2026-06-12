@@ -40,7 +40,6 @@
 
 </details>
 
-<div align="center">
 
 ---
 
